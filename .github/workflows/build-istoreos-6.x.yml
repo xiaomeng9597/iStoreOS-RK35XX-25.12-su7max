@@ -157,6 +157,17 @@ jobs:
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "status=success" >> ${GITHUB_OUTPUT}
 
+    - name: Verbose retry of failed stage
+      if: failure()
+      run: make package/install -j1 V=s
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: build.log
+
     - name: 查找ko文件
       run: |
         cd openwrt
