@@ -7,46 +7,46 @@
  * +----+----+-------+-----+----+---------
  * | DA | SA | TagET | Tag | ET | Payload ...
  * +----+----+-------+-----+----+---------
- *   6    6      2      6    2       N
+ *  6    6     2       6    2    N
  *
  * Tag Ethertype: CPU_TAG_TPID_TPID (default: ETH_P_YT921X = 0x9988)
- *   * Hardcoded for the moment, but still configurable. Discuss it if there
- *     are conflicts somewhere and/or you want to change it for some reason.
+ *
+ * Hardcoded for the moment, but still configurable. Discuss it if there
+ * are conflicts somewhere and/or you want to change it for some reason.
  * Tag:
  *   2: VLAN Tag
  *   2:
- *     15b: Rx Port Valid
- *     14b-11b: Rx Port
- *     10b-8b: Tx/Rx Priority
- *     7b: Tx/Rx Code Valid
- *     6b-1b: Tx/Rx Code
- *     0b: ? (unset)
+ *      15b: Rx Port Valid
+ *      14b-11b: Rx Port
+ *      10b-8b: Tx/Rx Priority
+ *      7b: Tx/Rx Code Valid
+ *      6b-1b: Tx/Rx Code
+ *      0b: ? (unset)
  *   2:
- *     15b: Tx Port(s) Valid
- *     10b-0b: Tx Port(s) Mask
+ *      15b: Tx Port(s) Valid
+ *      10b-0b: Tx Port(s) Mask
  */
 
 #include <linux/etherdevice.h>
-
+#include <linux/version.h>
 #include "tag.h"	/* BSP 6.1: etype/tag helpers live here, not "tag.h" */
 
 #ifndef ETH_P_YT921X
 #define ETH_P_YT921X 0x9988
 #endif
 
-#define YT921X_TAG_NAME	"yt921x"
+#define YT921X_TAG_NAME "yt921x"
+#define YT921X_TAG_LEN 8
 
-#define YT921X_TAG_LEN	8
-
-#define YT921X_TAG_PORT_EN		BIT(15)
-#define YT921X_TAG_RX_PORT_M		GENMASK(14, 11)
-#define YT921X_TAG_PRIO_M		GENMASK(10, 8)
-#define  YT921X_TAG_PRIO(x)			FIELD_PREP(YT921X_TAG_PRIO_M, (x))
-#define YT921X_TAG_CODE_EN		BIT(7)
-#define YT921X_TAG_CODE_M		GENMASK(6, 1)
-#define  YT921X_TAG_CODE(x)			FIELD_PREP(YT921X_TAG_CODE_M, (x))
-#define YT921X_TAG_TX_PORTS_M		GENMASK(10, 0)
-#define  YT921X_TAG_TX_PORTS(x)			FIELD_PREP(YT921X_TAG_TX_PORTS_M, (x))
+#define YT921X_TAG_PORT_EN BIT(15)
+#define YT921X_TAG_RX_PORT_M GENMASK(14, 11)
+#define YT921X_TAG_PRIO_M GENMASK(10, 8)
+#define YT921X_TAG_PRIO(x) FIELD_PREP(YT921X_TAG_PRIO_M, (x))
+#define YT921X_TAG_CODE_EN BIT(7)
+#define YT921X_TAG_CODE_M GENMASK(6, 1)
+#define YT921X_TAG_CODE(x) FIELD_PREP(YT921X_TAG_CODE_M, (x))
+#define YT921X_TAG_TX_PORTS_M GENMASK(10, 0)
+#define YT921X_TAG_TX_PORTS(x) FIELD_PREP(YT921X_TAG_TX_PORTS_M, (x))
 
 /* Incomplete. Some are configurable via RMA_CTRL_CPU_CODE, the meaning of
  * others remains unknown.
@@ -65,11 +65,15 @@ enum yt921x_tag_code {
  */
 static unsigned long yt921x_xmit_port_mask(const struct net_device *dev)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
+	/* dsa_slave_to_port() was renamed to dsa_user_to_port() in v6.7 */
+	struct dsa_port *dp = dsa_user_to_port(dev);
+#else
 	struct dsa_port *dp = dsa_slave_to_port(dev);
+#endif
 	unsigned long mask = BIT(dp->index);
 
-	if (IS_ENABLED(CONFIG_HSR) &&
-	    unlikely(dev->features & NETIF_F_HW_HSR_DUP)) {
+	if (IS_ENABLED(CONFIG_HSR) && unlikely(dev->features & NETIF_F_HW_HSR_DUP)) {
 		struct net_device *hsr_dev = dp->hsr_dev;
 		struct dsa_port *other_dp;
 
@@ -94,7 +98,8 @@ yt921x_tag_xmit(struct sk_buff *skb, struct net_device *netdev)
 	tag[0] = htons(ETH_P_YT921X);
 	/* VLAN tag unrelated when TX */
 	tag[1] = 0;
-	ctrl = YT921X_TAG_CODE(YT921X_TAG_CODE_FORWARD) | YT921X_TAG_CODE_EN |
+	ctrl = YT921X_TAG_CODE(YT921X_TAG_CODE_FORWARD) |
+	       YT921X_TAG_CODE_EN |
 	       YT921X_TAG_PRIO(skb->priority);
 	tag[2] = htons(ctrl);
 	ctrl = YT921X_TAG_TX_PORTS(yt921x_xmit_port_mask(netdev)) |
@@ -119,8 +124,7 @@ yt921x_tag_rcv(struct sk_buff *skb, struct net_device *netdev)
 	tag = dsa_etype_header_pos_rx(skb);
 
 	if (unlikely(tag[0] != htons(ETH_P_YT921X))) {
-		dev_warn_ratelimited(&netdev->dev,
-				     "Unexpected EtherType 0x%04x\n",
+		dev_warn_ratelimited(&netdev->dev, "Unexpected EtherType 0x%04x\n",
 				     ntohs(tag[0]));
 		kfree_skb(skb);
 		return NULL;
@@ -129,17 +133,16 @@ yt921x_tag_rcv(struct sk_buff *skb, struct net_device *netdev)
 	/* Locate which port this is coming from */
 	rx = ntohs(tag[2]);
 	if (unlikely((rx & YT921X_TAG_PORT_EN) == 0)) {
-		dev_warn_ratelimited(&netdev->dev,
-				     "Unexpected rx tag 0x%04x\n", rx);
+		dev_warn_ratelimited(&netdev->dev, "Unexpected rx tag 0x%04x\n", rx);
 		kfree_skb(skb);
 		return NULL;
 	}
-
 	port = FIELD_GET(YT921X_TAG_RX_PORT_M, rx);
+
 	skb->dev = dsa_master_find_slave(netdev, 0, port);
 	if (unlikely(!skb->dev)) {
-		dev_warn_ratelimited(&netdev->dev,
-				     "Couldn't decode source port %u\n", port);
+		dev_warn_ratelimited(&netdev->dev, "Couldn't decode source port %u\n",
+				     port);
 		kfree_skb(skb);
 		return NULL;
 	}
@@ -147,8 +150,7 @@ yt921x_tag_rcv(struct sk_buff *skb, struct net_device *netdev)
 	skb->priority = FIELD_GET(YT921X_TAG_PRIO_M, rx);
 
 	if (!(rx & YT921X_TAG_CODE_EN)) {
-		dev_warn_ratelimited(&netdev->dev,
-				     "Tag code not enabled in rx packet\n");
+		dev_warn_ratelimited(&netdev->dev, "Tag code not enabled in rx packet\n");
 	} else {
 		u16 code = FIELD_GET(YT921X_TAG_CODE_M, rx);
 
@@ -169,8 +171,8 @@ yt921x_tag_rcv(struct sk_buff *skb, struct net_device *netdev)
 			 */
 			break;
 		default:
-			dev_warn_ratelimited(&netdev->dev,
-					     "Unknown code 0x%02x\n", code);
+			dev_warn_ratelimited(&netdev->dev, "Unknown code 0x%02x\n",
+					     code);
 			break;
 		}
 	}
