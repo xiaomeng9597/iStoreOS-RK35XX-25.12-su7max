@@ -1,6 +1,6 @@
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -36,6 +36,7 @@
+@@ -34,6 +34,7 @@
  #define DSA_TAG_PROTO_VSC73XX_8021Q_VALUE	28
  #define DSA_TAG_PROTO_BRCM_LEGACY_FCS_VALUE	29
  #define DSA_TAG_PROTO_OOB_VALUE			30
@@ -8,9 +8,10 @@
  
  enum dsa_tag_protocol {
  	DSA_TAG_PROTO_NONE		= DSA_TAG_PROTO_NONE_VALUE,
-@@ -73,6 +74,7 @@
+@@ -68,6 +69,7 @@
+ 	DSA_TAG_PROTO_RZN1_A5PSW	= DSA_TAG_PROTO_RZN1_A5PSW_VALUE,
+ 	DSA_TAG_PROTO_LAN937X		= DSA_TAG_PROTO_LAN937X_VALUE,
  	DSA_TAG_PROTO_VSC73XX_8021Q	= DSA_TAG_PROTO_VSC73XX_8021Q_VALUE,
- 	DSA_TAG_PROTO_BRCM_LEGACY_FCS	= DSA_TAG_PROTO_BRCM_LEGACY_FCS_VALUE,
  	DSA_TAG_PROTO_OOB		= DSA_TAG_PROTO_OOB_VALUE,
 +	DSA_TAG_PROTO_YT921X		= DSA_TAG_PROTO_YT921X_VALUE,
  };
@@ -18,7 +19,7 @@
  struct dsa_switch;
 --- a/include/uapi/linux/if_ether.h
 +++ b/include/uapi/linux/if_ether.h
-@@ -102,6 +102,7 @@
+@@ -91,6 +91,7 @@
  #define ETH_P_AOE	0x88A2		/* ATA over Ethernet		*/
  #define ETH_P_ETHERCAT	0x88A4		/* EtherCAT			*/
  #define ETH_P_8021AD	0x88A8          /* 802.1ad Service VLAN		*/
