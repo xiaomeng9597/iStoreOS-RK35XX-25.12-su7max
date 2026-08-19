@@ -154,7 +154,6 @@ yt921x_tag_rcv(struct sk_buff *skb, struct net_device *netdev)
 	port = FIELD_GET(YT921X_TAG_RX_PORT_M, rx);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-        /* dsa_master_find_slave() was renamed to dsa_master_find_user() */
         skb->dev = dsa_conduit_find_user(netdev, 0, port);
 #else
         skb->dev = dsa_master_find_slave(netdev, 0, port);
