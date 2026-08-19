@@ -42,10 +42,10 @@
 		keyup-threshold-microvolt = <1800000>;
 		poll-interval = <100>;
 
-		vol-up-key {
-			label = "volume up";
-			linux,code = <KEY_VOLUMEUP>;
-			press-threshold-microvolt = <17000>;
+		button-recovery {
+			label = "Recovery";
+			linux,code = <KEY_VENDOR>;
+			press-threshold-microvolt = <1800>;
 		};
 	};
 
@@ -959,6 +959,15 @@
 &uart2 {
 	pinctrl-0 = <&uart2m0_xfer>;
 	status = "okay";
+};
+
+/* uart7m2 (feba0000) muxes to GPIO1_PB4/PB5, which conflicts with
+ * pcie2x1l0 PERST# (pcie2_0_rst = GPIO1_PB4). If uart7 probes, the
+ * pcie2x1l0 host bridge loses the pinctrl request and fails to probe,
+ * taking the first 2.5G NIC down with it. Keep it disabled.
+ */
+&uart7 {
+	status = "disabled";
 };
 
 /* ===== USB ===== */
