@@ -962,7 +962,7 @@ static const struct ethtool_rmon_hist_range yt921x_rmon_ranges[] = {
 	{ 65, 127 },
 	{ 128, 255 },
 	{ 256, 511 },
-	{ 512, 1024 },
+	{ 512, 1023 },
 	{ 1024, 1518 },
 	{ 1519, YT921X_FRAME_SIZE_MAX },
 	{}
