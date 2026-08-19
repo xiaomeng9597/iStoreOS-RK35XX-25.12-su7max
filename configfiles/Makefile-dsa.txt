@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+include $(TOPDIR)/rules.mk
+
+BOARD:=rockchip
+BOARDNAME:=Rockchip
+FEATURES:=ext4 audio usb usbgadget display gpio fpu pci pcie rootfs-part boot-part squashfs
+SUBTARGETS:=armv8
+
+KERNEL_PATCHVER:=6.12
+
+define Target/Description
+	Build firmware image for Rockchip SoC devices.
+endef
+
+include $(INCLUDE_DIR)/target.mk
+
+DEFAULT_PACKAGES += uboot-envtools partx-utils e2fsprogs mkf2fs kmod-gpio-button-hotplug ethtool
+
+KERNELNAME:=Image dtbs
+
+define Kernel/Prepare
+	$(call Kernel/Prepare/Default)
+	sed -i '/#include <linux\/types.h>/a\#define ETH_P_YT921X\t0x9988' $(LINUX_DIR)/include/uapi/linux/if_ether.h
+	sed -i '/#define DSA_TAG_PROTO_OOB_VALUE.*30/a #define DSA_TAG_PROTO_YT921X_VALUE\t\t31' $(LINUX_DIR)/include/net/dsa.h
+	sed -i '/DSA_TAG_PROTO_OOB.*= DSA_TAG_PROTO_OOB_VALUE,/a\	DSA_TAG_PROTO_YT921X\t\t= DSA_TAG_PROTO_YT921X_VALUE,' $(LINUX_DIR)/include/net/dsa.h
+endef
+
+$(eval $(call BuildTarget))
