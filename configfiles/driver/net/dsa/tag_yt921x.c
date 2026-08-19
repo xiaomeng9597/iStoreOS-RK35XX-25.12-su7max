@@ -35,6 +35,20 @@
 #define ETH_P_YT921X 0x9988
 #endif
 
+/*
+ * Mainline compat: DSA_TAG_PROTO_YT921X is not in mainline yet; the enum
+ * in v6.12 ends at DSA_TAG_PROTO_VSC73XX_8021Q (28). Claim the next free
+ * value. Remove this #define if your kernel tree already declares it
+ * (must come after <net/dsa.h> has been included by "tag.h").
+ */
+#ifndef DSA_TAG_PROTO_YT921X_VALUE
+#define DSA_TAG_PROTO_YT921X_VALUE 31
+#endif
+
+#ifndef DSA_TAG_PROTO_YT921X
+#define DSA_TAG_PROTO_YT921X ((enum dsa_tag_protocol)DSA_TAG_PROTO_YT921X_VALUE)
+#endif
+
 #define YT921X_TAG_NAME "yt921x"
 #define YT921X_TAG_LEN 8
 
@@ -194,5 +208,9 @@ static const struct dsa_device_ops yt921x_netdev_ops = {
 
 MODULE_DESCRIPTION("DSA tag driver for Motorcomm YT921x switches");
 MODULE_LICENSE("GPL");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
 MODULE_ALIAS_DSA_TAG_DRIVER(DSA_TAG_PROTO_YT921X, YT921X_TAG_NAME);
+#else
+MODULE_ALIAS_DSA_TAG_DRIVER(DSA_TAG_PROTO_YT921X);
+#endif
 module_dsa_tag_driver(yt921x_netdev_ops);
