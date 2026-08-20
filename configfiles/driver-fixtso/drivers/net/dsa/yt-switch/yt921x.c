@@ -4700,43 +4700,45 @@ yt921x_conduit_fix_features(struct net_device *dev,
 static void yt921x_disable_tso_work(struct work_struct *work)
 {
 	struct yt921x_priv *priv = container_of(work, struct yt921x_priv,
-						 disable_tso_work.work);
+						disable_tso_work.work);
 	struct dsa_switch *ds = &priv->ds;
+	struct dsa_port *cpu_dp = NULL;
+	int port;
 
-	for (int port = 0; port < ds->num_ports; port++) {
+	for (port = 0; port < ds->num_ports; port++) {
 		struct dsa_port *dp = dsa_to_port(ds, port);
+		if (dp->type == DSA_PORT_TYPE_CPU && dp->conduit) {
+			cpu_dp = dp;
+			break;
+		}
+	}
 
-		if (dp->type != DSA_PORT_TYPE_CPU || !dp->conduit)
-			continue;
+	if (!cpu_dp)
+		return;
 
-		priv->conduit = dp->conduit;
+	priv->conduit = cpu_dp->conduit;
 
-		/* Hijack ndo_fix_features: copy the conduit's ops table
-		 * and replace only ndo_fix_features so stmmac can never
-		 * restore TSO/GSO/GRO after we strip them.
-		 */
+	rtnl_lock();
+
+	if (priv->orig_conduit_ops == NULL) {
 		priv->orig_conduit_ops = priv->conduit->netdev_ops;
 		memcpy(&priv->conduit_ops, priv->orig_conduit_ops,
 		       sizeof(priv->conduit_ops));
-		priv->conduit_ops.ndo_fix_features =
-			yt921x_conduit_fix_features;
-		WRITE_ONCE(priv->conduit->netdev_ops,
-			   &priv->conduit_ops);
-
-		rtnl_lock();
-		dp->conduit->hw_features &=
-			~(NETIF_F_TSO | NETIF_F_TSO6 |
-			  NETIF_F_GSO | NETIF_F_GRO);
-		dp->conduit->wanted_features &=
-			~(NETIF_F_TSO | NETIF_F_TSO6 |
-			  NETIF_F_GSO | NETIF_F_GRO);
-		netdev_update_features(dp->conduit);
-		rtnl_unlock();
-
-		netdev_info(dp->conduit,
-			    "Hijacked ndo_fix_features for YT921x DSA tag (TSO/GSO/GRO disabled)\n");
-		break;
+		priv->conduit_ops.ndo_fix_features = yt921x_conduit_fix_features;
+		WRITE_ONCE(priv->conduit->netdev_ops, &priv->conduit_ops);
 	}
+
+	cpu_dp->conduit->hw_features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
+					 NETIF_F_GSO | NETIF_F_GRO);
+	cpu_dp->conduit->wanted_features &= ~(NETIF_F_TSO | NETIF_F_TSO6 |
+					     NETIF_F_GSO | NETIF_F_GRO);
+	
+	netdev_update_features(cpu_dp->conduit);
+
+	rtnl_unlock();
+
+	netdev_info(cpu_dp->conduit,
+		    "Hijacked ndo_fix_features for YT921x DSA tag (TSO/GSO/GRO disabled)\n");
 }
 
 static void yt921x_mdio_shutdown(struct mdio_device *mdiodev)
@@ -4759,9 +4761,13 @@ static void yt921x_mdio_remove(struct mdio_device *mdiodev)
 
 	cancel_delayed_work_sync(&priv->disable_tso_work);
 
-	/* Restore original netdev_ops if we hijacked them */
-	if (priv->orig_conduit_ops)
-		WRITE_ONCE(priv->conduit->netdev_ops, priv->orig_conduit_ops);
+	if (priv->orig_conduit_ops && priv->conduit) {
+		rtnl_lock();
+		if (priv->conduit->reg_state == NETREG_REGISTERED) {
+			WRITE_ONCE(priv->conduit->netdev_ops, priv->orig_conduit_ops);
+		}
+		rtnl_unlock();
+	}
 
 	for (size_t i = ARRAY_SIZE(priv->ports); i-- > 0; ) {
 		struct yt921x_port *pp = &priv->ports[i];
@@ -4820,8 +4826,8 @@ static int yt921x_mdio_probe(struct mdio_device *mdiodev)
 	 * ID 1). Not part of the upstream binding yet; defaults to 0, which
 	 * matches upstream behavior when the property is absent.
 	 */
-	if (!of_property_read_u32(dev->of_node, "motorcomm,switch-id", &val)) {
-		if (val >= YT921X_SWITCHID_NUM)
+	if (!of_property_read_u32(dev->of_node, "motorcomm,switch-id", &switchid)) {
+		if (switchid >= YT921X_SWITCHID_NUM)
 			return -EINVAL;
 		mdio->switchid = switchid;
 	}
