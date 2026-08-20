@@ -1109,6 +1109,7 @@
 		status = "okay";
 		dsa,member = <1 0>;
 		motorcomm,bdy-g98-led-profile;
+		motorcomm,switch-id = <0>;
 
 		mdio {
 			#address-cells = <1>;
@@ -1168,6 +1169,7 @@
 		status = "okay";
 		dsa,member = <0 0>;
 		motorcomm,bdy-g98-led-profile;
+		motorcomm,switch-id = <1>;
 
 		mdio {
 			#address-cells = <1>;

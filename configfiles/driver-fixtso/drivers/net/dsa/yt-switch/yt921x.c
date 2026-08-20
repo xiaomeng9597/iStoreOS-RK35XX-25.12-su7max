@@ -4800,7 +4800,7 @@ static int yt921x_mdio_probe(struct mdio_device *mdiodev)
 	struct yt921x_reg_mdio *mdio;
 	struct yt921x_priv *priv;
 	struct dsa_switch *ds;
-	u32 val;
+	u32 switchid;
 	int res;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -4823,7 +4823,7 @@ static int yt921x_mdio_probe(struct mdio_device *mdiodev)
 	if (!of_property_read_u32(dev->of_node, "motorcomm,switch-id", &val)) {
 		if (val >= YT921X_SWITCHID_NUM)
 			return -EINVAL;
-		mdio->switchid = val;
+		mdio->switchid = switchid;
 	}
 
 	mutex_init(&priv->reg_lock);
