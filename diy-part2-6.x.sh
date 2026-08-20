@@ -56,7 +56,7 @@ cp -f $GITHUB_WORKSPACE/configfiles/init.sh target/linux/rockchip/armv8/base-fil
 cp -f $GITHUB_WORKSPACE/configfiles/02_network target/linux/rockchip/armv8/base-files/etc/board.d/02_network
 
 
-cp -a $GITHUB_WORKSPACE/configfiles/driver/* target/linux/generic/files
+cp -a $GITHUB_WORKSPACE/configfiles/driver-fixtso/* target/linux/generic/files
 ls target/linux/generic/files
 
 
