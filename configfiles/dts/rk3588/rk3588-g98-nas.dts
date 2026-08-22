@@ -1105,7 +1105,7 @@
 &mdio0 {
 	switch@1d {
 		compatible = "motorcomm,yt9215";
-		reg = <29>;
+		reg = <0x1d>;
 		status = "okay";
 		dsa,member = <1 0>;
 		motorcomm,bdy-g98-led-profile;
@@ -1155,7 +1155,6 @@
 				fixed-link {
 					speed = <1000>;
 					full-duplex;
-					pause;
 				};
 			};
 		};
@@ -1215,7 +1214,6 @@
 				fixed-link {
 					speed = <1000>;
 					full-duplex;
-					pause;
 				};
 			};
 		};
